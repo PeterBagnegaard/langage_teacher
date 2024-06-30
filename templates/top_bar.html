@@ -1,0 +1,93 @@
+<!-- <style>
+    .top-bar {
+        background-color: #333;
+        color: white;
+        padding: 10px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .top-bar .logo a, .top-bar .features a, .top-bar .login-button a {
+        color: white;
+        text-decoration: none;
+    }
+    .top-bar .features a:hover, .top-bar .login-button a:hover {
+        text-decoration: underline;
+    }
+</style> -->
+
+<head>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css')}}" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+
+<div class="top-bar">
+    <div class="logo">
+        <a href="{{url_for('index')}}" target="_top">Home</a>
+    </div>
+    <div class="features">
+        <a href="{{url_for('conversation')}}" target="_top">Conversation</a>
+        <a href="{{url_for('vocabulary')}}" target="_top">Vocabulary</a>
+    </div>
+    <div class="login-button">
+        <div id="is_logged_in">
+            <a id="username" href="{{url_for('user')}}" target="_top"></a>
+            <a id="logout" href="{{url_for('index')}}" target="_top">Logout</a>    
+        </div>
+        <div id="is_logged_out">
+            <a id="login" href="{{url_for('login')}}" target="_top">Login</a>
+            <a id="register" href="{{url_for('register')}}" target="_top">Register</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const isLoggedIn = document.getElementById("is_logged_in");
+    const username = document.getElementById("username");
+    const logout = document.getElementById("logout");
+
+    const isLoggedOut = document.getElementById("is_logged_out");
+    // const login = document.getElementById("login");
+    // const register = document.getElementById("register");
+
+    $(document).ready(function()
+    {
+        set_user_info ();
+
+        logout.addEventListener('click', function()
+        {
+            $.ajax(
+            {
+                type: 'POST',
+                url: '/logout',
+            })
+
+        });
+
+    });
+
+    function set_user_info ()
+    {
+        $.ajax(
+        {
+            type: 'POST',
+            url: '/get_username',
+            success: function(response) 
+            {
+                username.innerText = response.username;
+
+                if (response.username)
+                {
+                    isLoggedIn.style.display = 'block';
+                    isLoggedOut.style.display = 'none';
+                }
+                else
+                {
+                    isLoggedIn.style.display = 'none';
+                    isLoggedOut.style.display = 'block';
+                }
+            },
+        });
+    }
+
+</script>

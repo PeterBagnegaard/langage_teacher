@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css')}}" />
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <iframe src="{{url_for('top_bar')}}"></iframe>
+
+    <h1>Vocabulary</h1>
+
+    <div class="flex">
+        <div class="small-window border flex foreground">
+            <div>
+                <h2 class="list-title">Category</h2>
+                <ul class="word-list" id="category_list"></ul>
+            </div>
+
+            <div>
+                <h2 class="list-title">Word</h2>
+                <ul class="word-list" id="word_list"></ul>
+            </div>
+        </div>
+        <div class="large-window">
+            <p><strong id="selectedWord"></strong></p>
+            <textarea id="wordTextarea" class="input-field"></textarea>
+            <p><strong id="selectedCategory"></strong></p>
+            <textarea id="categoryTextarea" class="input-field"></textarea>
+        </div>  
+    </div>
+
+
+
+    <script>
+        var knownWords = [];
+        var knownCategories = [];
+        var selectedWord = $('#selectedWord');
+        var wordTextarea = $('#wordTextarea');
+        var selectedCategory = $('#selectedCategory');
+        var categoryTextarea = $('#categoryTextarea');
+        const account_id = 5;        
+
+        $(document).ready(function()
+        {
+            // LOAD VOCABULARY
+            $.ajax(
+            {
+                type: 'POST',
+                url: '/get_vocabulary',
+                data: {account_id: account_id},
+                success: function(response) 
+                {
+                    knownWords = response.words;
+                    knownCategories = response.categories;
+                    list_known_words();
+                    list_known_categories();
+                },
+                error: function(error) 
+                {
+                    alert("ERROR [getting vocabulary]: " + error);
+                }
+            });
+        });
+
+        function list_known_words ()
+        {
+            var ol = document.getElementById('word_list');
+
+            knownWords.forEach(function(word) 
+            {
+                var li = document.createElement('li');
+                var p = document.createElement('p');
+                li.setAttribute('draggable', 'true');
+                li.className = 'draggable';
+                p.textContent = word;
+                p.setAttribute('href', word);
+                p.addEventListener('click', function(event)
+                {
+                    event.preventDefault();
+
+                    setWordInfo(word);
+                });
+                li.addEventListener('dragstart', (event) => 
+                {
+                    event.dataTransfer.setData('text/plain', word);
+                });
+                li.appendChild(p);
+                ol.appendChild(li);
+            });
+        }
+
+        function list_known_categories ()
+        {
+            var category_list = document.getElementById('category_list');
+
+            knownCategories.forEach(function(category) 
+            {
+                var li = document.createElement('li');
+                var p = document.createElement('p');
+                p.textContent = category;
+
+                p.addEventListener('click', function(event)
+                {
+                    event.preventDefault();
+
+                    setCategoryInfo(category);
+                });
+                li.addEventListener('dragover', (event) => 
+                {
+                    event.preventDefault();
+                });
+                li.addEventListener('drop', (event) => 
+                {
+                    event.preventDefault();
+  
+                    const word = event.dataTransfer.getData('text/plain');
+
+                    uploadWordCategory(word, category);
+                    
+                    alert("Dropped " + word + " off at " + category);
+                });
+
+                li.appendChild(p);
+                category_list.appendChild(li);
+            });
+        }  
+        
+        function setWordInfo(word)
+        {
+            selectedWord.text(word);
+
+            $.ajax(
+            {
+                type: 'POST',
+                url: '/get_word_info',
+                data: {word: word, account_id: account_id},
+                success: function(response)
+                {
+                    wordTextarea.show();
+                    selectedWord.show();
+                    wordTextarea.val(response.word_note);
+                    categoryTextarea.val(response.category_note);
+                    highlightWords([word]);
+                    highlightCategory(response.category);
+                },
+                error: function(error) {alert("ERROR [setInfo for word]" + error);}
+            })
+        }
+
+        function uploadWordCategory (word, category) // This is in both files
+        {
+            $.ajax(
+            {
+                type: 'Post',
+                url: '/set_word_category',
+                data: {word: word, category: category, account_id: account_id},
+                error: function (error)
+                {
+                    alert("ERROR [Set " + word + " category to " + category + "]:"  + error);
+                }
+            })
+        }
+
+        function setCategoryInfo(category)
+        {
+            $.ajax({
+                type: 'POST',
+                url: '/get_category_info',
+                data: {category: category, account_id: account_id},
+                success: function(response) 
+                {
+                    wordTextarea.hide();
+                    selectedWord.hide();
+                    categoryTextarea.val(response.category_notes);
+                    highlightWords(response.words_in_category, categoryClicked=true);
+                    highlightCategory(category);
+                },
+                error: function(error) 
+                {
+                    alert("ERROR [category in list]: " + error);
+                }
+            });
+        }
+
+        function highlightWords(words, categoryClicked=false)
+        {
+            var ol = document.getElementById('word_list').querySelectorAll('li');;
+
+            ol.forEach(element => 
+            {
+                var p = element.querySelector('p');
+
+                $(element).removeClass('selected');
+
+                if (words.includes(p.textContent))
+                {
+                    $(element).addClass('selected');
+                }
+            });
+        }
+
+        function highlightCategory(category)
+        {
+            selectedCategory.text(category);
+
+            var ol = document.getElementById('category_list').querySelectorAll('li');;
+
+            ol.forEach(element => 
+            {
+                var p = element.querySelector('p');
+
+                $(element).removeClass('selected');
+
+                if (p.textContent == category)
+                {
+                    console.log("Highlighting category " + p.textContent);
+                    $(element).addClass('selected');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

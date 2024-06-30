@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css')}}" />
+    <style>
+        /* body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        } */
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+        }
+        a {
+            text-decoration: none;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <iframe src="{{url_for('top_bar')}}"></iframe>
+
+    <div class="container">
+        <h1>Language teacher with GPT</h1>
+        <p><a href="{{url_for('conversation')}}">Go to conversation</a></p>
+        <p><a href="{{url_for('vocabulary')}}">Vocabulary</a></p>
+        <p><a href="{{url_for('login')}}">Login</a></p>
+    </div>
+</body>
+</html>
+

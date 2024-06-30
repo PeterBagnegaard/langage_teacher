@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css')}}" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- <script src="conversation_scripts.js"></script> -->
+
+</head>
+
+
+
+
+<body>
+    <iframe src="{{url_for('top_bar')}}"></iframe>
+
+    <h1 class="centered" id="conversationTitle">Chat with GPT:</h1>
+    
+    <div class="flex">
+        <div class="large-window">
+            <div class="chat-window foreground" id="scrollableWindow">
+                  <p> Your conversation with a bot </p>
+            </div>
+            <br>
+            <textarea type="text" id="textInput" placeholder="Send a message" class="input-field" rows=5></textarea>
+        </div>
+        <div class="small-window">
+            <div class="side-by-side small-margin">
+                <p><strong>WORD: </strong></p>
+                <p><strong id="selectedWord"></strong></p>
+            </div>
+            <textarea id="selectedWordNote" class="textarea foreground rounded-corners"></textarea>
+            <div id="categoryBox" class="flex small-margin" style="display: none;">
+                <div class="flex">
+                    <div class="side-by-side small-margin">
+                        <p><strong>CATEGORY: </strong></p>
+                        <p><strong id="selectedCategory"></strong></p>
+                    </div>
+                    <!-- DROP DOWN MENU -->
+                    <button id="categoryButton" class="rounded-corners small-margin">Set category</button>
+                    <div id="categoryDropdown" class="dropdown-content small-margin">
+                        <ul id="chooseFromList" class="word-list" href="#"></ul>
+                    </div>
+                    <!-- DROP DOWN MENU -->
+                </div>
+                <textarea id="selectedCategoryNotes" class="textarea foreground rounded-corners"></textarea>
+            </div>
+        </div>
+        
+    </div>
+
+
+
+
+
+
+
+
+
+    <script>
+        var knownWords = [];
+        var knownCategories = [];
+
+        const categoryButton = document.getElementById('categoryButton');
+        const categoryDropdown = document.getElementById('categoryDropdown');
+        const chooseFromList = document.getElementById('chooseFromList');
+        const categoryBox = document.getElementById('categoryBox');
+        const textInput = document.getElementById("textInput");
+        const conversationTitle = document.getElementById('conversationTitle');
+
+        var selectedWord = $('#selectedWord');
+        var selectedWordNote = $('#selectedWordNote');
+        var selectedCategory = $('#selectedCategory');
+        var selectedCategoryNotes = $('#selectedCategoryNotes');
+        var body = $('body');
+
+        $(document).ready(function()
+        {
+            categoryButton.style.display = 'none';
+            
+            // LOAD VOCABULARY
+            $.ajax({
+                type: 'POST',
+                url: '/get_vocabulary',
+                success: function(response) 
+                {
+                    knownWords = response.words;
+                    knownCategories = response.categories;
+                },
+                error: function(error) 
+                {
+                    alert("ERROR [getting vocabulary]: " + error);
+                }
+            });
+
+            // GET CONVERSATION
+            $.ajax({
+                type: 'POST',
+                url: '/get_newest_conversation',
+                success: function(response) 
+                {
+                    conversationTitle.innerText = response.title;
+                },
+                error: function(error) 
+                {
+                    alert("ERROR [getting vocabulary]: " + error);
+                }
+            });
+
+            // DOUBLE CLICK
+            body.on('dblclick', '.doubleClickable', function()
+            {
+                var word = getSelectedWord();
+
+                if (word) 
+                {
+                    $.ajax(
+                    {
+                        type: 'POST',
+                        url: '/get_word_info',
+                        data: {word: word},
+                        success: function(response) 
+                        {
+                            insertWordNotes(word, response.word_note);
+                            insertWordCategory(response.category, response.category_note);
+                            displayCategory ();
+                        },
+                        error: function(error) 
+                        {
+                            alert("ERROR [double click]: " + error);
+                        }
+                    })
+                }
+
+                // displayCategory ();
+
+                // setWordColors();
+            });
+
+
+            // UPDATING NOTES
+            selectedWordNote.on('input', function() 
+            {
+                var text = $(this).val();
+
+                $.ajax(
+                {
+                    type: 'POST',
+                    url: '/set_word_note',
+                    data: { selectedWord: selectedWord.text(), text: text }
+                });
+
+                if (text)
+                {
+                    addKnownWord(selectedWord.text());
+                }
+                else
+                {
+                    removeKnownWord(selectedWord.text());
+                }
+
+                displayCategory ();
+            });
+
+
+            // UPDATING CATEGORY NOTES
+            selectedCategoryNotes.on('input', function() 
+            {
+                var text = $(this).val();
+
+                $.ajax(
+                {
+                    type: 'POST',
+                    url: '/set_category_note',
+                    data: { selectedCategory: selectedCategory.text(), text: text }
+                });
+            });
+
+
+            // ENTER TEXT TO CONVERSATION 
+            textInput.addEventListener("keydown", function(event)
+            {
+                if (event.key === "Enter" && event.shiftKey) 
+                {
+                    event.preventDefault();
+                    insertIntoChat();
+                }
+            });
+
+            // SHOW DROP DOWN MENU
+            categoryButton.addEventListener('click', function()
+            {
+                categoryDropdown.style.display = 'block';
+                while (chooseFromList.firstChild) 
+                {
+                    chooseFromList.removeChild(chooseFromList.firstChild);
+                }
+
+                // New category
+                var li = document.createElement('li');
+                var link = document.createElement('a');
+                link.textContent = "New category";
+                link.addEventListener('click', function() 
+                {
+                    const newCategory = prompt('Select category:');
+
+                    uploadWordCategory(selectedWord.text (), newCategory);
+                    downloadCategoryInfo(newCategory);
+                    
+                    categoryDropdown.style.display = 'none';
+                });
+                li.appendChild(link);
+                chooseFromList.appendChild(li);
+
+                // Known category
+                knownCategories.forEach(function(category) 
+                {
+                    var li = document.createElement('li');
+                    var link = document.createElement('a');
+                    link.textContent = category;
+                    link.addEventListener('click', function(event)
+                    {
+                        event.preventDefault();
+
+                        uploadWordCategory(selectedWord.text (), category);
+                        downloadCategoryInfo(category);
+
+                        categoryDropdown.style.display = 'none';
+                    });
+                    li.appendChild(link);
+                    chooseFromList.appendChild(li);
+                });
+            });
+
+            // HIDE DROP DOWN MENU
+            document.body.addEventListener('click', function(event)
+            {
+                if (!categoryDropdown.contains(event.target) && event.target !== categoryButton) {
+                    categoryDropdown.style.display = 'none';
+                }
+            });            
+
+
+        });
+
+        // ------------------------------------ //
+        //              FUNCTIONS               //
+        // ------------------------------------ //
+
+        // SHOW OR HIDE CATEGORY BOX
+        function displayCategory ()
+        {
+            if (knownWords.includes(selectedWord.text()))
+            {
+                categoryBox.style.display = 'block';
+            }
+            else
+            {
+                categoryBox.style.display = 'none';
+            }
+        }
+
+        function uploadWordCategory (word, category) // This is in both files
+        {
+            $.ajax(
+            {
+                type: 'Post',
+                url: '/set_word_category',
+                data: {word: word, category: category},
+                error: function (error)
+                {
+                    alert("ERROR [Set " + word + " category to " + category + "]:"  + error);
+                }
+            })
+        }
+
+        function downloadCategoryInfo (category)
+        {
+            $.ajax(
+            {
+                type: 'POST',
+                url: '/get_category_info',
+                data: {category: category},
+                success: function(response) 
+                {
+                    insertWordCategory(response.category, response.category_notes);
+                },
+                error: function(error) 
+                {
+                    alert("ERROR [category in list]: " + error);
+                }
+            });
+        }
+
+        function setWordColors() 
+        {
+            $('#scrollableWindow span').each(function(index, element) 
+            {
+                var word = $(element).text().trim();
+                var colorClass = getColorClass(word);
+                $(element).removeClass('green black').addClass(colorClass);
+            });
+        }
+
+        function getColorClass(word) 
+        {
+            if (knownWords.includes(word.toLowerCase())) {return 'green';} else {return 'black';}
+        }
+
+        function insertIntoChat() 
+        {
+            const userInput = textInput.value;
+            fetch('/insert_into_chat', 
+            {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json',},
+                body: JSON.stringify({ text: userInput }),
+            })
+            .then(response => response.text())
+            .then(result => 
+            {
+                const scrollableWindow = document.getElementById("scrollableWindow");
+                scrollableWindow.innerHTML += result;
+	            scrollableWindow.scrollTop = scrollableWindow.scrollHeight; // Scroll to the bottom            
+                textInput.value = "";
+            })
+            .then(result =>
+            {
+                setWordColors();
+            });
+        }
+
+        function getSelectedWord() 
+        {
+            var text = window.getSelection().toString().trim();
+            return text.toLowerCase();
+        }
+
+        function insertWordNotes(word, response) 
+        {
+            try
+            {
+                selectedWord.text(word);
+                selectedWordNote.val(response);
+                // addKnownWord(word);
+            }
+            catch (error) {"ERROR [insertWordNotes]: " + alert(error);}
+        }
+
+        function insertWordCategory(category, categoryNotes) 
+        {
+            categoryButton.style.display = 'block';
+            
+            try
+            {
+                selectedCategory.text(category);
+                selectedCategoryNotes.val(categoryNotes);
+            }
+            catch (error) {"ERROR [insertWordCategory]: " + alert(error);}
+        }
+
+        function addKnownWord(word)
+        {
+            if (!knownWords.includes(word.toLowerCase()))
+            {
+                knownWords = knownWords.concat(word);
+                setWordColors();
+            }
+        }
+
+        function removeKnownWord(word)
+        {
+            if (knownWords.includes(word.toLowerCase()))
+            {
+                knownWords = knownWords.filter(item => item !== word.toLowerCase());
+                setWordColors();
+            }
+        }
+
+    </script>
+</body>
+</html>
+
+
+
+<!-- 
+ToDo
+Lav logik der afgør om word-note boks og kategori-boks er tilgængelige
+-->
